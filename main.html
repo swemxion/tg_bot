@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Удалить объект</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f4f4f4;
+      text-align: center;
+    }
+    canvas {
+      border: 2px solid #ccc;
+      margin-top: 10px;
+      touch-action: none;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Выдели объект, который нужно удалить</h2>
+  <canvas id="canvas" width="512" height="512"></canvas>
+  <button onclick="sendMask()">Готово</button>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const imgUrl = urlParams.get("img");
+    const chatId = urlParams.get("chat_id");
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const maskCanvas = document.createElement("canvas");
+    maskCanvas.width = canvas.width;
+    maskCanvas.height = canvas.height;
+    const maskCtx = maskCanvas.getContext("2d");
+
+    const baseImg = new Image();
+    baseImg.crossOrigin = "anonymous";
+    baseImg.src = imgUrl;
+    baseImg.onload = () => {
+      ctx.drawImage(baseImg, 0, 0, canvas.width, canvas.height);
+    };
+
+    let painting = false;
+
+    function startDraw(e) {
+      painting = true;
+      draw(e);
+    }
+
+    function endDraw() {
+      painting = false;
+      ctx.beginPath();
+      maskCtx.beginPath();
+    }
+
+    function draw(e) {
+      if (!painting) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX || e.touches[0].clientX) - rect.left;
+      const y = (e.clientY || e.touches[0].clientY) - rect.top;
+
+
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 20;
+      ctx.lineCap = "round";
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+
+
+      maskCtx.fillStyle = "white";
+      maskCtx.beginPath();
+      maskCtx.arc(x, y, 10, 0, 2 * Math.PI);
+      maskCtx.fill();
+    }
+
+    canvas.addEventListener("mousedown", startDraw);
+    canvas.addEventListener("mouseup", endDraw);
+    canvas.addEventListener("mousemove", draw);
+
+    canvas.addEventListener("touchstart", startDraw);
+    canvas.addEventListener("touchend", endDraw);
+    canvas.addEventListener("touchmove", draw);
+
+    async function sendMask() {
+      const maskData = maskCanvas.toDataURL("image/png");
+
+      const response = await fetch("https://your-server.com/api/send-mask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          mask_base64: maskData,
+          image_url: imgUrl
+        })
+      });
+
+      if (response.ok) {
+        alert("Маска отправлена! Результат скоро придёт в Telegram.");
+      } else {
+        alert("Ошибка при отправке маски.");
+      }
+    }
+  </script>
+</body>
+</html>
